@@ -14,24 +14,29 @@ typealias Regex = RegularExpression
 typealias Regex = NSRegularExpression
 #endif
 
-struct Address {
-    let name: String
-    let entry: Entry
+public struct Address {
+    public let name: String
+    public let entry: Entry
+    
+    public init(name: String, entry: Entry) {
+        self.name = name
+        self.entry = entry
+    }
 }
 
 extension Address: Equatable {
-    static func ==(lhs: Address, rhs: Address) -> Bool {
+    public static func ==(lhs: Address, rhs: Address) -> Bool {
         return lhs.name == rhs.name && lhs.entry == rhs.entry
     }
 }
 
-indirect enum Entry {
+public indirect enum Entry {
     case mail(String)
     case group([Address])
 }
 
 extension Entry: Equatable {
-    static func ==(lhs: Entry, rhs: Entry) -> Bool {
+    public static func ==(lhs: Entry, rhs: Entry) -> Bool {
         switch (lhs, rhs) {
         case (.mail(let address1), .mail(let address2)): return address1 == address2
         case (.group(let addresses1), .group(let addresses2)): return addresses1 == addresses2
@@ -40,7 +45,7 @@ extension Entry: Equatable {
     }
 }
 
-struct AddressParser {
+public struct AddressParser {
     
     enum Node {
         case op(String)
@@ -54,7 +59,7 @@ struct AddressParser {
         case text
     }
 
-    static func parse(_ text: String) -> [Address] {
+    public static func parse(_ text: String) -> [Address] {
 
         var address = [Node]()
         var addresses = [[Node]]()

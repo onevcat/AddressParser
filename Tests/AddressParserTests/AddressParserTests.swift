@@ -7,7 +7,7 @@
 //
 
 import XCTest
-@testable import AddressParser
+import AddressParser
 
 class AddressParserTests: XCTestCase {
     func testCanParseSingleAddress() {
