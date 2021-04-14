@@ -48,7 +48,7 @@ public struct Address {
 
 extension Address: Equatable {
     public static func ==(lhs: Address, rhs: Address) -> Bool {
-        return lhs.name == rhs.name && lhs.entry == rhs.entry
+        lhs.name == rhs.name && lhs.entry == rhs.entry
     }
 }
 
@@ -67,8 +67,7 @@ extension Entry: Equatable {
     }
 }
 
-public struct AddressParser {
-    
+public enum AddressParser {
     enum Node {
         case op(String)
         case text(String)
@@ -82,12 +81,11 @@ public struct AddressParser {
     }
 
     public static func parse(_ text: String) -> [Address] {
-
         var address = [Node]()
         var addresses = [[Node]]()
         
         let nodes = Tokenizer(text: text).tokenize()
-        nodes.forEach { (node) in
+        nodes.forEach { node in
             if case .op(let value) = node, value == "," || value == ";" {
                 if !address.isEmpty {
                     addresses.append(address)
@@ -102,11 +100,10 @@ public struct AddressParser {
             addresses.append(address)
         }
         
-        return addresses.flatMap(parseAddress)
+        return addresses.compactMap(parseAddress)
     }
     
     static func parseAddress(address: [Node]) -> Address? {
-        
         var parsing: [ParsingState: [String]] = [
             .address: [],
             .comment: [],
@@ -115,7 +112,7 @@ public struct AddressParser {
         ]
         
         func parsingIsEmpty(_ state: ParsingState) -> Bool {
-            return parsing[state]!.isEmpty
+            parsing[state]?.isEmpty == true
         }
         
         var state: ParsingState = .text
@@ -138,28 +135,27 @@ public struct AddressParser {
                 if state == .address {
                     value = value.truncateUnexpectedLessThanOp()
                 }
-                parsing[state]!.append(value)
+                parsing[state]?.append(value)
             }
         }
         
         // If there is no text but a comment, use comment for text instead.
-        if parsingIsEmpty(.text) && !parsingIsEmpty(.comment) {
+        if parsingIsEmpty(.text), !parsingIsEmpty(.comment) {
             parsing[.text] = parsing[.comment]
             parsing[.comment] = []
         }
         
         if isGroup {
             // http://tools.ietf.org/html/rfc2822#appendix-A.1.3
-            let name = parsing[.text]!.joined(separator: " ")
-            let group = parsingIsEmpty(.group) ? [] : parse(parsing[.group]!.joined(separator: ","))
+            let name = parsing[.text]?.joined(separator: " ") ?? ""
+            let group = parsingIsEmpty(.group) ? [] : parse(parsing[.group]?.joined(separator: ",") ?? "")
             return Address(name: name, entry: .group(group))
         } else {
             // No address found but there is text. Try to find an address from text.
-            if parsingIsEmpty(.address) && !parsingIsEmpty(.text) {
-                for text in parsing[.text]!.reversed() {
-                    if text.isEmail {
-                        let found = parsing[.text]!.removeLastMatch(text)!
-                        parsing[.address]!.append(found)
+            if parsingIsEmpty(.address), !parsingIsEmpty(.text) {
+                for text in parsing[.text]?.reversed() ?? [] {
+                    if text.isEmail, let found = parsing[.text]?.removeLastMatch(text) {
+                        parsing[.address]?.append(found)
                         break
                     }
                 }
@@ -168,7 +164,7 @@ public struct AddressParser {
             // Did not find an address in text. Try again with a looser condition.
             if parsingIsEmpty(.address) {
                 var textHolder = [String]()
-                for text in parsing[.text]!.reversed() {
+                for text in parsing[.text]?.reversed() ?? [] {
                     if parsingIsEmpty(.address) {
                         let result = text.replacingMatch(regex: .looserMailRegex, with: "")
                         textHolder.append(result.afterReplacing)
@@ -183,26 +179,25 @@ public struct AddressParser {
             }
             
             // If there is still no text but a comment, use comment for text instead.
-            if parsingIsEmpty(.text) && !parsingIsEmpty(.comment) {
+            if parsingIsEmpty(.text), !parsingIsEmpty(.comment) {
                 parsing[.text] = parsing[.comment]
                 parsing[.comment] = []
             }
             
-            if parsing[.address]!.count > 1 {
-                let keepAddress = parsing[.address]!.removeFirst()
-                parsing[.text]?.append(contentsOf: parsing[.address]!)
+            if var addresses = parsing[.address], addresses.count > 1 {
+                let keepAddress = addresses.removeFirst()
+                parsing[.text]?.append(contentsOf: addresses)
                 parsing[.address] = [keepAddress]
             }
             
-            let tempText = parsing[.text]!.joined(separator: " ").nilOnEmpty
+            let tempText = parsing[.text]?.joined(separator: " ").nilOnEmpty
             
             // Remove single/douch quote mark in addresses
-            let tempAddress = parsing[.address]!.joined(separator: " ").trimmingQuote.nilOnEmpty
+            let tempAddress = parsing[.address]?.joined(separator: " ").trimmingQuote.nilOnEmpty
             
-            if address.isEmpty && isGroup {
+            if address.isEmpty, isGroup {
                 return nil
             } else {
-                
                 var address = tempAddress ?? tempText ?? ""
                 var name = tempText ?? tempAddress ?? ""
                 if address == name {
@@ -219,7 +214,6 @@ public struct AddressParser {
     }
     
     class Tokenizer {
-        
         let operators: [Character: Character?] =
             ["\"": "\"", "(": ")", "<": ">",
              ",": nil, ":": ";", ";": nil]
@@ -237,7 +231,7 @@ public struct AddressParser {
         }
         
         func tokenize() -> [Node] {
-            text.characters.forEach(check)
+            text.forEach(check)
             appendCurrentNode()
             
             return list.filter { (node) -> Bool in
@@ -251,7 +245,7 @@ public struct AddressParser {
         }
         
         func check(char: Character) {
-            if (operators.keys.contains(char) || char == "\\") && escaped {
+            if operators.keys.contains(char) || char == "\\", escaped {
                 escaped = false
             } else if char == expectingOp {
                 appendCurrentNode()
@@ -259,17 +253,15 @@ public struct AddressParser {
                 expectingOp = nil
                 escaped = false
                 return
-            } else if expectingOp == nil && operators.keys.contains(char) {
+            } else if expectingOp == nil, let expecting = operators[char] {
                 appendCurrentNode()
                 list.append(.op(String(char)))
-                expectingOp = operators[char]!
+                expectingOp = expecting
                 escaped = false
                 return
             }
             
-            
-            
-            if !escaped && char == "\\" {
+            if !escaped, char == "\\" {
                 escaped = true
                 return
             }
@@ -278,8 +270,8 @@ public struct AddressParser {
                 currentNode = .text("")
             }
             
-            if case .text(var currentText) = currentNode! {
-                if escaped && char != "\\" {
+            if case .text(var currentText) = currentNode {
+                if escaped, char != "\\" {
                     currentText.append("\\")
                 }
                 currentText.append(char)
@@ -303,14 +295,13 @@ public struct AddressParser {
 }
 
 extension Regex {
-    static let lessThanOpRegex = try! Regex(pattern: "^[^<]*<\\s*", options: [])
-    static let emailRegex = try! Regex(pattern: "^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}", options: [])
-    static let quoteRegex = try! Regex(pattern: "^(\"|\'){1}.+@.+(\"|\'){1}$", options: [])
-    static let looserMailRegex = try! Regex(pattern: "\\s*\\b[^@\\s]+@[^\\s]+\\b\\s*", options: [])
+    static let lessThanOpRegex = (try? Regex(pattern: "^[^<]*<\\s*", options: [])) ?? Regex()
+    static let emailRegex = (try? Regex(pattern: "^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}", options: [])) ?? Regex()
+    static let quoteRegex = (try? Regex(pattern: "^(\"|\'){1}.+@.+(\"|\'){1}$", options: [])) ?? Regex()
+    static let looserMailRegex = (try? Regex(pattern: "\\s*\\b[^@\\s]+@[^\\s]+\\b\\s*", options: [])) ?? Regex()
 }
 
 extension String {
-    
     func truncateUnexpectedLessThanOp() -> String {
         let range = NSMakeRange(0, utf16.count)
         return Regex.lessThanOpRegex.stringByReplacingMatches(in: self, options: [], range: range, withTemplate: "")
@@ -348,13 +339,13 @@ extension String {
     }
     
     var nilOnEmpty: String? {
-        return isEmpty ? nil : self
+        isEmpty ? nil : self
     }
 }
 
 extension Array where Element: Equatable {
     mutating func removeLastMatch(_ item: Element) -> Element? {
-        guard let index = Array(reversed()).index(of: item) else {
+        guard let index = Array(reversed()).firstIndex(of: item) else {
             return nil
         }
         return remove(at: count - 1 - index)
