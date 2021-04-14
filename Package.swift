@@ -24,8 +24,28 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
+// swift-tools-version:5.0
 import PackageDescription
 
 let package = Package(
-    name: "AddressParser"
+    name: "AddressParser",
+    products: [
+        .library(
+            name: "AddressParser",
+            targets: ["AddressParser"]
+        ),
+    ],
+    dependencies: [],
+    targets: [
+        .target(
+            name: "AddressParser",
+            dependencies: [],
+            path: "Sources"
+        ),
+        .testTarget(
+            name: "AddressParserTests",
+            dependencies: ["AddressParser"]
+        ),
+    ],
+    swiftLanguageVersions: [.version("5.0")]
 )
