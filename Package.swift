@@ -47,5 +47,5 @@ let package = Package(
             dependencies: ["AddressParser"]
         ),
     ],
-    swiftLanguageVersions: [.version("5.0")]
+    swiftLanguageVersions: [.version("5")]
 )
